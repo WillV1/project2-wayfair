@@ -6,7 +6,7 @@ from .forms import ProfileForm, PostForm
 from django.contrib.auth import login
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.paginator import Paginator
 
 # Create your views here.
 
@@ -61,10 +61,12 @@ def user_profile(request, profile_id):
 
 @login_required
 def profile(request):#also known as profile index
-    print(request.user)
     profile = Profile.objects.get(user = request.user)
     posts = Post.objects.filter(user = request.user)
-    context = {'profile': profile, 'posts':posts}
+    
+    cities_with_uniq_names = Post.objects.all().distinct('city')
+
+    context = {'profile': profile, 'posts':posts, 'cities_with_uniq_names': cities_with_uniq_names}
     return render(request,'profile/index.html', context)
 
 @login_required
@@ -113,10 +115,9 @@ def delete_post(request, city_id, post_id):
     post = Post.objects.get(id=post_id)
 
     if request.user == post.user:
-        # Post.objects.get(id=post_id).delete()
         post.delete()
     
-        return redirect('view_city', city_id=city_id)
+        return redirect('view_city', city_id = city_id)
 
     else: 
         raise PermissionDenied("You are not authorized to delete")
@@ -158,10 +159,12 @@ def cities_index(request):
 
 @login_required
 def view_city(request, city_id):
-    city = City.objects.get(id=city_id)
-    posts = Post.objects.all().order_by('-timestamp').filter(city_id = city_id)
-    
 
-    post_form = PostForm()
-    context = {'city': city, 'posts': posts, 'post_form': post_form}
+    city = City.objects.get(id = city_id)
+    posts = Post.objects.filter(city_id =city_id).order_by('-timestamp')
+    paginator = Paginator(posts, 10)
+    page = request.GET.get('page')
+    posts = paginator.get_page(page)
+    
+    context = {'city': city, 'posts': posts}
     return render(request, 'city/show.html', context)
